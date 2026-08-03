@@ -1,0 +1,36 @@
+<div class="app-shell">
+  @if (!immersiveFinal()) { <header class="topbar">
+    <a class="brand" routerLink="/capitulos" aria-label="Ir al mapa de capítulos">
+      <span class="brand-mark">NA</span>
+      <span>Nuestra aventura</span>
+    </a>
+    <button class="icon-button" type="button" (click)="toggleMusic()"
+      [attr.aria-label]="state.progress().musicEnabled ? 'Silenciar música' : 'Activar música'">
+      {{ state.progress().musicEnabled ? '♪' : '♩' }}
+    </button>
+  </header> }
+
+  <main>
+    @if (!online()) {
+      <div class="offline-banner" role="status">Estás sin conexión. Puedes seguir revisando el contenido ya visitado.</div>
+    }
+    @if (errors.message()) {
+      <div class="error-banner" role="alert">
+        <span>{{ errors.message() }}</span>
+        <button type="button" (click)="errors.dismiss()" aria-label="Cerrar mensaje">×</button>
+      </div>
+    }
+    <router-outlet />
+  </main>
+
+  @if (state.progress().started && !immersiveFinal()) {
+    <nav class="bottom-nav" aria-label="Navegación principal">
+      <a routerLink="/capitulos" routerLinkActive="active">
+        <span aria-hidden="true">✦</span><small>Capítulos</small>
+      </a>
+      <a routerLink="/mochila" routerLinkActive="active">
+        <span aria-hidden="true">◇</span><small>Mi mochila</small>
+      </a>
+    </nav>
+  }
+</div>
