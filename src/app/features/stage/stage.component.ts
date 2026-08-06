@@ -1,4 +1,4 @@
-import { Component, inject, OnDestroy, signal } from '@angular/core';
+import { Component, ElementRef, inject, OnDestroy, signal, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { AdventureStateService } from '../../core/services/adventure-state.service';
 import { StageConfig } from '../../core/models/adventure.models';
@@ -112,7 +112,12 @@ import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-boa
               <p>Cuando valides el código, los seis fragmentos podrán reunirse.</p>
             }
             @default {
-              <p class="interaction-kicker">Observa con calma</p><p>La primera señal está en el mundo real. Las pistas te acompañarán.</p>
+              @if (current.order === 3) {
+                <p class="interaction-kicker">El destino está en la pista</p>
+                <p>Lee cada detalle con calma. Si lo necesitas, puedes revelar pistas cada vez más claras.</p>
+              } @else {
+                <p class="interaction-kicker">Observa con calma</p><p>La primera pista está en tu casa. cualquier cosa las pistas te acompañarán.</p>
+              }
             }
           }
           @if (interactionMessage()) { <p class="interaction-message" [class.complete]="interactionComplete()" role="status">{{ interactionMessage() }}</p> }
@@ -138,27 +143,91 @@ import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-boa
           } @else if (current.validationMode === 'code-only') {
             <a class="primary-button glow" [class.disabled-link]="!interactionComplete()" [attr.aria-disabled]="!interactionComplete()" (click)="guardInteraction($event)" [routerLink]="['/escanear', current.id]" [queryParams]="{ manual: true }">Ingresar el código de la rosa</a>
           } @else {
-            <a class="primary-button glow" [class.disabled-link]="!interactionComplete()" [attr.aria-disabled]="!interactionComplete()" (click)="guardInteraction($event)" [routerLink]="['/escanear', current.id]">Escanear QR</a>
-            <a class="text-button centered" [class.disabled-link]="!interactionComplete()" [attr.aria-disabled]="!interactionComplete()" (click)="guardInteraction($event)" [routerLink]="['/escanear', current.id]" [queryParams]="{ manual: true }">Ingresar código manual</a>
+            <a class="primary-button glow" [class.disabled-link]="!interactionComplete()" [attr.aria-disabled]="!interactionComplete()" (click)="prepareScanner($event)" [routerLink]="['/escanear', current.id]">
+              {{ current.order === 3 ? 'Ya lo encontré' : 'Escanear QR' }}
+            </a>
+            <a class="text-button centered" [class.disabled-link]="!interactionComplete()" [attr.aria-disabled]="!interactionComplete()" (click)="prepareScanner($event)" [routerLink]="['/escanear', current.id]" [queryParams]="{ manual: true }">
+              Ingresar código manual
+            </a>
           }
           <button class="emergency-button" type="button" (click)="showEmergency.set(!showEmergency())">No puedo continuar</button>
         </div>
 
         @if (showEmergency()) {
           <aside class="emergency-panel page-enter"><h2>Tranquila, no estás atrapada</h2><p>Puedes usar el código escrito junto al QR, revelar todas las pistas o continuar manualmente.</p><div class="inline-actions">
-            <a class="secondary-button" [routerLink]="['/escanear', current.id]" [queryParams]="{ manual: true }">Usar código manual</a>
+            <a class="secondary-button" [routerLink]="['/escanear', current.id]" [queryParams]="{ manual: true }" (click)="prepareScanner($event)">Usar código manual</a>
             @if (current.interaction.kind !== 'word-order') { <button class="secondary-button" type="button" (click)="revealAll()">Mostrar pista final</button> }
             <button class="secondary-button" type="button" (click)="continueManually()">Continuar manualmente</button>
             <button class="text-button" type="button" (click)="restore()">Restaurar capítulo actual</button>
           </div></aside>
+        }
+
+        @if (activeDialog(); as dialog) {
+          <div class="story-dialog-backdrop" (click)="closeDialog()" (keydown.escape)="closeDialog()">
+            <section
+              class="story-dialog"
+              [class.story-dialog--warning]="dialog === 'early-warning' || dialog === 'bag-warning'"
+              role="dialog"
+              aria-modal="true"
+              [attr.aria-labelledby]="dialog + '-title'"
+              (click)="$event.stopPropagation()"
+            >
+              @switch (dialog) {
+                @case ('hint') {
+                  <div class="story-dialog__icon" aria-hidden="true">✦</div>
+                  <p class="eyebrow">Una ayuda extra</p>
+                  <h2 id="hint-title">¿Quieres revelar otra pista?</h2>
+                  <p>Cada pista será un poco más clara, pero todavía puedes intentar descubrirlo por tu cuenta.</p>
+                  <div class="story-dialog__actions">
+                    <button #dialogPrimary class="primary-button" type="button" (click)="confirmHint()">Sí, revelar pista</button>
+                    <button class="secondary-button" type="button" (click)="closeDialog()">Seguir intentando</button>
+                  </div>
+                }
+                @case ('manual') {
+                  <div class="story-dialog__icon" aria-hidden="true">◇</div>
+                  <p class="eyebrow">Alternativa disponible</p>
+                  <h2 id="manual-title">¿Quieres continuar manualmente?</h2>
+                  <p>Podrás seguir con la aventura sin validar esta señal.</p>
+                  <div class="story-dialog__actions">
+                    <button #dialogPrimary class="primary-button" type="button" (click)="confirmManualContinuation()">Continuar manualmente</button>
+                    <button class="secondary-button" type="button" (click)="closeDialog()">Volver</button>
+                  </div>
+                }
+                @case ('bag-warning') {
+                  <div class="story-dialog__icon story-dialog__icon--warning" aria-hidden="true">!</div>
+                  <p class="eyebrow">Ya llegaste</p>
+                  <h2 id="bag-warning-title">Todavía no lo abras</h2>
+                  <p class="story-dialog__warning-copy">Antes de abrirlo, mira con mucha atención por fuera. <strong>La siguiente señal está esperando ahí.</strong></p>
+                  <div class="story-dialog__rule"><span aria-hidden="true">⌕</span><p>Busca el QR por fuera y escanéalo primero.</p></div>
+                  <div class="story-dialog__actions">
+                    <button #dialogPrimary class="primary-button" type="button" (click)="continueToScanner()">Buscar y escanear la señal</button>
+                    <button class="secondary-button" type="button" (click)="closeDialog()">Todavía no</button>
+                  </div>
+                }
+                @case ('early-warning') {
+                  <div class="story-dialog__icon story-dialog__icon--warning" aria-hidden="true">!</div>
+                  <p class="eyebrow">Una regla importante</p>
+                  <h2 id="early-warning-title">No lo abras por nada del mundo</h2>
+                  <p class="story-dialog__warning-copy">Cuando encuentres lo que te espera, <strong>debes mantenerlo completamente cerrado</strong>. Si lo abres antes de que la aventura te lo indique, pierdes esta parte de la historia.</p>
+                  <div class="story-dialog__rule"><span aria-hidden="true">♡</span><p>Encuéntralo, mantenlo cerrado y vuelve a esta página.</p></div>
+                  <div class="story-dialog__actions">
+                    <button #dialogPrimary class="primary-button" type="button" (click)="closeDialog()">Entendido, no lo abriré</button>
+                  </div>
+                }
+              }
+            </section>
+          </div>
         }
       </section>
     }
   `,
 })
 export class StageComponent implements OnDestroy {
+  @ViewChild('dialogPrimary') dialogPrimary?: ElementRef<HTMLButtonElement>;
   readonly state = inject(AdventureStateService);
   readonly showEmergency = signal(false);
+  readonly activeDialog = signal<'hint' | 'manual' | 'early-warning' | 'bag-warning' | null>(null);
+  readonly pendingManualScanner = signal(false);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   readonly stage: StageConfig | undefined = this.state.stageById(this.route.snapshot.paramMap.get('id') ?? '');
@@ -174,24 +243,60 @@ export class StageComponent implements OnDestroy {
   readonly countdownSeconds = signal(this.stage?.interaction.kind === 'fragment-order' ? 8 : 0);
   readonly countdownSkipped = signal(false);
   private countdownTimer?: number;
+  private dialogFocusTimer?: number;
 
   constructor() {
     this.resetWords();
     if (this.state.progress().unlockedVideoIds.includes(this.stage?.id ?? '')) this.interactionComplete.set(true);
     if (this.countdownSeconds()) this.countdownTimer = window.setInterval(() => this.tickCountdown(), 1000);
+    if (this.stage?.order === 3) this.openDialog('early-warning');
   }
 
-  ngOnDestroy(): void { if (this.countdownTimer) window.clearInterval(this.countdownTimer); }
+  ngOnDestroy(): void {
+    if (this.countdownTimer) window.clearInterval(this.countdownTimer);
+    if (this.dialogFocusTimer) window.clearTimeout(this.dialogFocusTimer);
+  }
 
   revealHint(): void {
-    if (!this.stage || !confirm('¿Segura que quieres revelar otra pista?')) return;
+    if (!this.stage) return;
+    this.openDialog('hint');
+  }
+  confirmHint(): void {
+    if (!this.stage) return;
     this.hintCount.set(this.state.useHint(this.stage.id));
+    this.closeDialog();
   }
   revealAll(): void { while (this.stage && this.hintCount() < 2) this.hintCount.set(this.state.useHint(this.stage.id)); }
   restore(): void { this.state.restoreCurrentStage(); this.showEmergency.set(false); }
   continueManually(): void {
-    if (!this.stage || !confirm('¿Quieres continuar sin escanear el QR?')) return;
+    if (!this.stage) return;
+    this.openDialog('manual');
+  }
+  confirmManualContinuation(): void {
+    if (!this.stage) return;
+    this.closeDialog();
     this.state.unlockVideo(this.stage.id); void this.router.navigate(['/recuerdo', this.stage.id]);
+  }
+  prepareScanner(event: Event): void {
+    if (!this.interactionComplete()) {
+      this.guardInteraction(event);
+      return;
+    }
+    if (this.stage?.order !== 3) return;
+    event.preventDefault();
+    const target = event.currentTarget as HTMLAnchorElement | null;
+    this.pendingManualScanner.set(target?.search.includes('manual=true') ?? false);
+    this.openDialog('bag-warning');
+  }
+  continueToScanner(): void {
+    if (!this.stage) return;
+    const manual = this.pendingManualScanner();
+    this.closeDialog();
+    void this.router.navigate(['/escanear', this.stage.id], { queryParams: manual ? { manual: true } : undefined });
+  }
+  closeDialog(): void {
+    this.activeDialog.set(null);
+    this.pendingManualScanner.set(false);
   }
   guardInteraction(event: Event): void {
     if (this.interactionComplete()) return;
@@ -240,6 +345,11 @@ export class StageComponent implements OnDestroy {
   skipCountdown(): void { this.countdownSkipped.set(true); this.countdownSeconds.set(0); if (this.countdownTimer) window.clearInterval(this.countdownTimer); }
 
   private finishInteraction(complete: boolean, message: string): void { this.interactionComplete.set(complete); this.interactionMessage.set(message); if (complete) navigator.vibrate?.(45); }
+  private openDialog(dialog: 'hint' | 'manual' | 'early-warning' | 'bag-warning'): void {
+    this.activeDialog.set(dialog);
+    if (this.dialogFocusTimer) window.clearTimeout(this.dialogFocusTimer);
+    this.dialogFocusTimer = window.setTimeout(() => this.dialogPrimary?.nativeElement.focus(), 0);
+  }
   private isSimpleInteraction(): boolean { return !this.stage || ['discovery', 'photo-reveal', 'homecoming'].includes(this.stage.interaction.kind); }
   private normalize(value: string): string { return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[.,]/g, '').toLowerCase().trim(); }
   private move<T>(values: T[], index: number, direction: number): T[] { const target = index + direction; if (target < 0 || target >= values.length) return values; const next = [...values]; [next[index], next[target]] = [next[target], next[index]]; return next; }

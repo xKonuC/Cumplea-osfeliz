@@ -6,12 +6,12 @@ const demoPoster = 'https://images.unsplash.com/photo-1518199266791-5375a83190b7
 export const ADVENTURE_CONFIG: AdventureConfig = {
   version: 2,
   recipientName: 'Kathia',
-  experienceName: 'Nuestra aventura',
-  eventDate: '2026-12-31', // TODO: fecha real del cumpleaños.
-  introText: 'Kathia, hoy no recibirás solamente un regalo.\n\nDurante las próximas horas tendrás que encontrar seis fragmentos. Algunos estarán cerca. Otros requerirán que observes, recuerdes y confíes.\n\nGuárdalos todos. Al final entenderás para qué sirven.',
+  experienceName: 'El universo de Kathia',
+  eventDate: '2026-08-08',
+  introText: 'Kathia bebe , hoy no recibirás solamente un regalo.\n\nDurante el proximo ratito tendrás que encontrar seis fragmentos de historia. Algunos estarán cerca. Otros requerirán que observes, recuerdes y confíes.\n\nGuárdalos todos. Al final entenderás para qué sirven.',
   introVideoUrl: '/videos/feliz-cumpleanos-kathia.mp4', // Copia tu video con este nombre dentro de public/videos/.
   introVideoPosterUrl: demoPoster, // TODO: reemplazar por una portada del video introductorio.
-  coverImageUrl: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?auto=format&fit=crop&w=1400&q=80', // TODO
+  coverImageUrl: '/images/bienvenida.png',
   musicUrl: '', // TODO: URL HTTPS de una pista ambiental con licencia.
   adminKey: 'cambiar-esta-clave-2026', // TODO: cambia esta clave antes de publicar.
   fragmentMode: 'abstract',
@@ -48,25 +48,23 @@ export const ADVENTURE_CONFIG: AdventureConfig = {
         phraseParts: ['Es hora de probar', 'el açaí', 'que tanto querías.'],
         successMessage: 'Es hora de probar el açaí que tanto querías.',
         destinationName: 'Açaí Brasil',
-        arrivalInstruction: 'Al llegar, acércate al mesón y pregunta por el sobre reservado a nombre de Kathia.',
+        arrivalInstruction: 'Al llegar, acércate al mesón y pregunta por si hay algo reservado a nombre de Kathia.',
         locationAlt: 'Açaí Brasil, destino donde está reservado el sobre para Kathia.',
       },
     },
     {
-      id: 'cualidades-5k1r', order: 3, kind: 'stop', title: 'Lo que veo en ti', subtitle: 'Hay cosas que quizá no notas',
-      description: 'Quizás tú haces estas cosas sin darte cuenta. Yo sí me doy cuenta.',
-      mission: 'Recorre tres pequeños recuerdos y descubre qué cualidad tuya veo en cada uno.',
-      primaryHint: 'No es una prueba: elige lo que cada recuerdo te haga sentir.', secondaryHint: 'Las tres palabras son empatía, fortaleza y ternura.', finalHint: 'Cada palabra se usa una vez; puedes cambiar tus elecciones.',
+      id: 'cualidades-5k1r', order: 3, kind: 'stop', title: 'Algo te está esperando', subtitle: 'Un destino entre muchas tiendas',
+      description: 'La tercera señal no está escondida en casa. Tendrás que salir y descubrir el lugar exacto donde algo te espera.',
+      mission: 'Sigue las pistas hasta descubrir tu próximo destino. Cuando creas haberlo encontrado, ve hasta allí y busca la señal que preparé para ti.',
+      primaryHint: 'Ve al lugar donde muchas tiendas comparten un mismo techo. Allí busca aquello que acompaña tus pasos, carga tus cosas y guarda lo necesario para una aventura. El nombre que buscas tiene cinco letras: tres repiten la misma consonante y la última es una A.',
+      secondaryHint: 'Puedes llevar sus productos en la mano, sobre el hombro o contigo durante un viaje.',
+      finalHint: 'Ve al mall y busca la tienda Bubba. Pregunta por una bolsa reservada a nombre de Kathia. Cuando te la entreguen, no la abras: escanea el QR pegado en ella.',
       expectedQrCode: 'NA-5K1R-CUALIDADES-8V6D', manualCode: 'MIRADA-5930', videoUrl: demoVideo, videoPosterUrl: demoPoster,
-      beforeVideoText: 'Esto es apenas una parte de cómo te veo.', afterVideoText: 'Tu forma de cuidar, sostener y querer hace más bonito todo lo que te rodea.',
-      completionMessage: 'Quizás tú haces estas cosas sin darte cuenta. Yo sí me doy cuenta.', nextTeaser: 'Un recuerdo incompleto señalará el próximo lugar.',
+      beforeVideoText: 'La bolsa guardaba algo más que una sorpresa.', afterVideoText: 'A veces una aventura comienza mucho antes de abrir un regalo.',
+      completionMessage: 'Llegaste hasta la bolsa y encontraste la señal que escondía.', nextTeaser: 'Un recuerdo incompleto señalará el próximo lugar.',
       reward: { id: 'fragmento-3', name: 'Tercer fragmento', icon: '◓', description: 'La composición guarda ya la mitad de su secreto.' },
-      fragment: { id: 'fragmento-3', label: 'III', color: '#8f6678' }, rewardInstruction: 'Conserva la tarjeta y el tercer fragmento.', nextStageName: 'Una imagen incompleta',
-      interaction: { kind: 'qualities', qualities: ['Empatía', 'Fortaleza', 'Ternura'], scenarios: [
-        { text: 'Cuando escuchaste sin apurarme y lograste que me sintiera comprendido.', quality: 'Empatía' },
-        { text: 'Cuando seguiste adelante incluso en uno de tus días más difíciles.', quality: 'Fortaleza' },
-        { text: 'Cuando un gesto pequeño tuyo hizo que todo se sintiera como hogar.', quality: 'Ternura' },
-      ] },
+      fragment: { id: 'fragmento-3', label: 'III', color: '#8f6678' }, rewardInstruction: 'Guarda la bolsa y el tercer fragmento. Todavía forman parte de la aventura.', nextStageName: 'Una imagen incompleta',
+      interaction: { kind: 'discovery' },
     },
     {
       id: 'imagen-8n4c', order: 4, kind: 'stop', title: 'Una imagen incompleta', subtitle: 'Un lugar entre nosotros',

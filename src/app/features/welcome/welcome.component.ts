@@ -12,15 +12,15 @@ import { AudioService } from '../../core/services/audio.service';
       <div class="welcome-photo" [class.cinematic-exit]="leaving()" [style.background-image]="'url(' + state.config.coverImageUrl + ')'">
         <div class="welcome-shade"></div>
         <div class="welcome-copy">
-          <p class="eyebrow">Una historia preparada para {{ state.config.recipientName }}</p>
+          <p class="eyebrow">Una historia preparada para ti {{ state.config.recipientName }}</p>
           <h1>{{ state.config.experienceName }}</h1>
-          <p class="event-date">{{ state.config.eventDate | date: "d 'de' MMMM 'de' y" }}</p>
+          <p class="event-date">
+            <span class="event-date__label"><span aria-hidden="true">♡</span></span>
+            <strong>{{ state.config.eventDate | date: "d 'de' MMMM 'de' y" }}</strong>
+          </p>
           <p class="lead prologue-copy">{{ state.config.introText }}</p>
           <button class="primary-button glow" type="button" (click)="begin()">
             {{ leaving() ? 'Preparando el primer capítulo…' : (state.progress().started ? 'Continuar nuestra aventura' : 'Comenzar nuestra aventura') }}
-          </button>
-          <button class="text-button" type="button" (click)="toggleMusic()">
-            {{ state.progress().musicEnabled ? 'Silenciar música' : 'Activar música ambiental' }}
           </button>
           <p class="permission-note"><span aria-hidden="true">◉</span> Más adelante pediremos permiso para usar la cámara. Siempre habrá una alternativa.</p>
           @if (leaving()) { <button class="text-button" type="button" (click)="continueNow()">Continuar sin animación</button> }
@@ -31,8 +31,8 @@ import { AudioService } from '../../core/services/audio.service';
         <div class="intro-video-overlay page-enter" role="dialog" aria-modal="true" aria-labelledby="intro-video-title">
           <div class="intro-video-content">
             <p class="eyebrow">Antes de comenzar</p>
-            <h2 id="intro-video-title">Un mensaje para ti, {{ state.config.recipientName }}</h2>
-            <p>Preparé estas palabras para darte la bienvenida a nuestra aventura.</p>
+            <h2 id="intro-video-title">Feliz Cumpleaños bebe , {{ state.config.recipientName }}</h2>
+            <p>Antes de comenzar, mira este video. Es solo el principio de lo que preparé para ti.</p>
             <div class="video-card intro-video-card">
               <video
                 #introVideo
@@ -91,12 +91,6 @@ export class WelcomeComponent implements OnDestroy {
     if (this.navigationTimer) window.clearTimeout(this.navigationTimer);
     this.audio.resumeAfterVideo();
     void this.router.navigate(['/etapa', this.state.progress().currentStageId]);
-  }
-
-  toggleMusic(): void {
-    const enabled = !this.state.progress().musicEnabled;
-    this.state.setMusic(enabled);
-    this.audio.setEnabled(enabled);
   }
 
   ngOnDestroy(): void {
