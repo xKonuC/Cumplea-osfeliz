@@ -1,39 +1,47 @@
-import { AfterViewInit, Component, ElementRef, inject, OnDestroy, signal, ViewChild } from '@angular/core';
+import { Component, ElementRef, inject, OnDestroy, signal, ViewChild } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import { AdventureStateService } from '../../core/services/adventure-state.service';
 import { QrService } from '../../core/services/qr.service';
-import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-board.component';
 
 @Component({
   selector: 'app-epilogue',
-  imports: [ReactiveFormsModule, RouterLink, FragmentBoardComponent],
+  imports: [ReactiveFormsModule, RouterLink],
   template: `
     <section class="page page-enter epilogue-gate">
       @if (state.completedCount() < 6) {
         <div class="locked-final"><span>⌁</span><h1>La última puerta sigue cerrada</h1><p>Primero reúne los seis fragmentos.</p><a class="primary-button" routerLink="/capitulos">Volver a los capítulos</a></div>
+      } @else if (!arrivedHome()) {
+        <p class="eyebrow">El último tramo</p>
+        <h1>Vuelve a casa</h1>
+        <p class="lead">Guarda bien tus seis fragmentos y llévalos contigo. Cuando hayas llegado, vuelve a esta pantalla.</p>
+        <div class="home-arrival-card">
+          <span aria-hidden="true">♡</span>
+          <p>No necesitas buscar nada más durante el camino.</p>
+          <button class="primary-button glow" type="button" (click)="confirmArrival()">Ya llegué a casa</button>
+        </div>
       } @else {
-        <p class="eyebrow">De regreso a casa</p><h1>La habitación guarda el epílogo</h1>
-        <p class="lead">Ya están aquí los seis fragmentos. Busca una última señal dentro de la habitación decorada.</p>
-        <app-fragment-board [fragments]="fragments" [unlockedIds]="state.progress().unlockedRewardIds" [assembled]="true" />
+        <p class="eyebrow">Una última pista</p><h1>Ve a tu pieza</h1>
+        <p class="lead">Ve directamente hasta tu pieza y entra despacio. No necesitas buscar en ningún otro lugar de la casa.</p>
+        <p class="epilogue-direction">La última señal está esperando ahí. Cuando la encuentres, escanea el QR para continuar.</p>
         @if (!manualMode()) {
-          <div class="camera-shell epilogue-camera"><video #preview muted playsinline aria-label="Vista previa de la cámara"></video><div class="scan-frame"><i></i><i></i><i></i><i></i></div><p>Mantén el QR de la habitación dentro del marco</p></div>
+          <div class="camera-shell epilogue-camera"><video #preview muted playsinline aria-label="Vista previa de la cámara"></video><div class="scan-frame"><i></i><i></i><i></i><i></i></div><p>Mantén la última señal dentro del marco</p></div>
           @if (cameraStatus() === 'loading') { <p class="status-message">Preparando la cámara…</p> }
           @if (cameraStatus() === 'denied') { <div class="notice error-notice"><strong>La cámara no está disponible.</strong><span>Usa el código escrito junto al QR.</span></div> }
           <button class="text-button centered" type="button" (click)="openManual()">Ingresar código manual</button>
         } @else {
-          <div class="manual-card"><div class="manual-icon">✦</div><h2>La última señal</h2><p>Escribe el código que está dentro de la habitación.</p><label for="epilogueCode">Código de respaldo</label><input id="epilogueCode" [formControl]="manualCode" autocomplete="off" /><button class="primary-button" type="button" (click)="validateManual()" [disabled]="manualCode.invalid">Abrir el epílogo</button><button class="text-button" type="button" (click)="restartCamera()">Volver a la cámara</button></div>
+          <div class="manual-card"><div class="manual-icon">✦</div><h2>La última señal</h2><p>Escribe el código que aparece junto al QR.</p><label for="epilogueCode">Código de respaldo</label><input id="epilogueCode" [formControl]="manualCode" autocomplete="off" /><button class="primary-button" type="button" (click)="validateManual()" [disabled]="manualCode.invalid">Continuar</button><button class="text-button" type="button" (click)="restartCamera()">Volver a la cámara</button></div>
         }
         @if (message()) { <div class="notice" [class.success-notice]="success()" [class.error-notice]="!success()" role="status"><strong>{{ message() }}</strong></div> }
       }
     </section>
   `,
 })
-export class EpilogueComponent implements AfterViewInit, OnDestroy {
+export class EpilogueComponent implements OnDestroy {
   @ViewChild('preview') preview?: ElementRef<HTMLVideoElement>;
   readonly state = inject(AdventureStateService);
-  readonly fragments = this.state.config.stages.map((stage) => stage.fragment);
+  readonly arrivedHome = signal(false);
   readonly manualMode = signal(false);
   readonly cameraStatus = signal<'idle' | 'loading' | 'active' | 'denied'>('idle');
   readonly message = signal('');
@@ -45,8 +53,11 @@ export class EpilogueComponent implements AfterViewInit, OnDestroy {
   private controls?: IScannerControls;
   private validating = false;
 
-  ngAfterViewInit(): void { if (this.state.completedCount() === 6) void this.startCamera(); }
   ngOnDestroy(): void { this.stopCamera(); }
+  confirmArrival(): void {
+    this.arrivedHome.set(true);
+    setTimeout(() => void this.startCamera());
+  }
   async startCamera(): Promise<void> {
     if (!this.preview) return;
     this.cameraStatus.set('loading'); this.reader = new BrowserMultiFormatReader();
@@ -62,7 +73,7 @@ export class EpilogueComponent implements AfterViewInit, OnDestroy {
   validateManual(): void { if (!this.manualCode.invalid) this.validate(this.manualCode.value, true); }
   private validate(value: string, manual: boolean): void {
     const valid = manual ? this.qr.validateManual(value, this.state.config.epilogue) : this.qr.validateScanned(value, this.state.config.epilogue);
-    if (!valid) { this.success.set(false); this.message.set('Esa no es la señal de la habitación.'); navigator.vibrate?.(60); return; }
+    if (!valid) { this.success.set(false); this.message.set('Esa no es la señal que estás buscando.'); navigator.vibrate?.(60); return; }
     this.validating = true; this.stopCamera(); this.state.completeEpilogue(); this.success.set(true); this.message.set('Aventura completada.'); navigator.vibrate?.([70, 40, 100]);
     setTimeout(() => void this.router.navigate(['/final']), 700);
   }

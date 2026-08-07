@@ -38,6 +38,7 @@ export interface StageConfig {
   description: string;
   primaryHint: string;
   secondaryHint: string;
+  tertiaryHint?: string;
   finalHint: string;
   imageUrl?: string;
   mapUrl?: string;
@@ -100,6 +101,7 @@ export interface AdventureProgress {
   unlockedVideoIds: string[];
   watchedVideoIds: string[];
   unlockedRewardIds: string[];
+  confirmedFragmentStageIds: string[];
   hintsUsed: Record<string, number>;
   startedAt?: string;
   completedAt?: string;

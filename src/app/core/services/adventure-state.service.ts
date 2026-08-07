@@ -15,6 +15,7 @@ export const DEFAULT_PROGRESS: AdventureProgress = {
   unlockedVideoIds: [],
   watchedVideoIds: [],
   unlockedRewardIds: [],
+  confirmedFragmentStageIds: [],
   hintsUsed: {},
   musicEnabled: false,
   returningHome: false,
@@ -61,7 +62,9 @@ export class AdventureStateService {
   useHint(stageId: string): number {
     let count = 0;
     this.progress.update((p) => {
-      count = Math.min((p.hintsUsed[stageId] ?? 0) + 1, 2);
+      const stage = this.stageById(stageId);
+      const maximumHints = stage?.order === 5 ? 4 : 2;
+      count = Math.min((p.hintsUsed[stageId] ?? 0) + 1, maximumHints);
       return { ...p, hintsUsed: { ...p.hintsUsed, [stageId]: count } };
     });
     return count;
@@ -91,6 +94,14 @@ export class AdventureStateService {
       unlockedRewardIds: this.addUnique(p.unlockedRewardIds, stage.reward.id),
       unlockedStageIds: next ? this.addUnique(p.unlockedStageIds, next.id) : p.unlockedStageIds,
       currentStageId: next?.id ?? stageId,
+    }));
+  }
+
+  confirmFragmentLetter(stageId: string): void {
+    if (!this.stageById(stageId)) return;
+    this.progress.update((p) => ({
+      ...p,
+      confirmedFragmentStageIds: this.addUnique(p.confirmedFragmentStageIds, stageId),
     }));
   }
 
@@ -162,6 +173,9 @@ export class AdventureStateService {
       completedStageIds: value.completedStageIds.filter((id) => ids.has(id)),
       unlockedVideoIds: value.unlockedVideoIds.filter((id) => ids.has(id)),
       watchedVideoIds: value.watchedVideoIds.filter((id) => ids.has(id)),
+      confirmedFragmentStageIds: Array.isArray(value.confirmedFragmentStageIds)
+        ? value.confirmedFragmentStageIds.filter((id) => ids.has(id))
+        : [],
     };
   }
 
@@ -177,6 +191,7 @@ export class AdventureStateService {
       Array.isArray(p.unlockedVideoIds) &&
       Array.isArray(p.watchedVideoIds) &&
       Array.isArray(p.unlockedRewardIds) &&
+      (p.confirmedFragmentStageIds === undefined || Array.isArray(p.confirmedFragmentStageIds)) &&
       !!p.hintsUsed &&
       typeof p.hintsUsed === 'object' &&
       typeof p.musicEnabled === 'boolean' &&

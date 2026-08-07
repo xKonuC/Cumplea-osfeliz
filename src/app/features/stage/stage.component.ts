@@ -1,12 +1,13 @@
 import { Component, ElementRef, inject, OnDestroy, signal, ViewChild } from '@angular/core';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { AdventureStateService } from '../../core/services/adventure-state.service';
 import { StageConfig } from '../../core/models/adventure.models';
 import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-board.component';
 
 @Component({
   selector: 'app-stage',
-  imports: [RouterLink, FragmentBoardComponent],
+  imports: [RouterLink, ReactiveFormsModule, FragmentBoardComponent],
   template: `
     @if (stage; as current) {
       <section class="page page-enter stage-page" [class.near-reveal]="current.order >= 5">
@@ -108,13 +109,66 @@ import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-boa
               <button class="secondary-button full-button" type="button" (click)="checkPieces()">Colocar fragmentos</button>
             }
             @case ('homecoming') {
-              <p class="interaction-kicker">Una señal todavía permanece oculta</p>
-              <p>Cuando valides el código, los seis fragmentos podrán reunirse.</p>
+              @if (!assemblyStarted()) {
+                <p class="interaction-kicker">Las respuestas están en tus manos</p>
+                <p>Saca las seis piezas que guardaste durante el día. La página no te mostrará lo que forman: tienes que descubrirlo con los fragmentos reales.</p>
+                <button class="primary-button full-button" type="button" (click)="startAssembly()">Tengo todos los fragmentos</button>
+              } @else if (!phraseSolved()) {
+                <div class="assembly-challenge page-enter">
+                  <p class="interaction-kicker">Júntalos</p>
+                  <h2>Busca la forma en que encajan</h2>
+                  <p>No importa el orden en que los encontraste.</p>
+                  <p>Muévelos, gíralos y busca la forma en que todos encajan.</p>
+                  <p>Cuando lo logres, mira con atención lo que forman.</p>
+                  <form class="assembly-answer" (submit)="checkFinalPhrase($event)">
+                    <label for="fragmentPhrase">¿Qué dicen tus fragmentos?</label>
+                    <input
+                      id="fragmentPhrase"
+                      type="text"
+                      [formControl]="finalPhrase"
+                      placeholder="Escribe aquí"
+                      autocomplete="off"
+                      autocapitalize="characters"
+                      (input)="clearAssemblyMessage()"
+                    />
+                    <button class="primary-button" type="submit">Comprobar</button>
+                  </form>
+                  @if (assemblyMessage()) {
+                    <p class="assembly-feedback" role="status">{{ assemblyMessage() }}</p>
+                  }
+                </div>
+              } @else if (!returnMessageShown()) {
+                <div class="phrase-reveal page-enter" aria-live="polite">
+                  <p class="phrase-reveal__letters" aria-label="Mi vida">
+                    @for (letter of revealLetters; track $index) {
+                      <span [style.--letter-index]="$index">{{ letter === ' ' ? ' ' : letter }}</span>
+                    }
+                  </p>
+                  <h2>Sí.</h2>
+                  <p>Eso era lo que llevabas contigo durante toda esta aventura.</p>
+                  <p>Porque entre todos los lugares, regalos, pistas y vueltas que dimos hoy, había algo que quería decirte desde el principio.</p>
+                  <p class="phrase-reveal__personal">Eres una parte demasiado importante de mi vida, Kathia.</p>
+                  <p>Y quería que hoy lo descubrieras de una forma que pudieras recordar.</p>
+                </div>
+              } @else {
+                <div class="homecoming-message page-enter" aria-live="polite">
+                  <p class="eyebrow">Ahora sí…</p>
+                  <h2>Ya no queda nada más que buscar afuera.</h2>
+                  <p>Guarda bien tus seis fragmentos.</p>
+                  <p>Y vuelve a casa.</p>
+                </div>
+              }
             }
             @default {
               @if (current.order === 3) {
                 <p class="interaction-kicker">El destino está en la pista</p>
                 <p>Lee cada detalle con calma. Si lo necesitas, puedes revelar pistas cada vez más claras.</p>
+              } @else if (current.order === 4) {
+                <p class="interaction-kicker">Un antojo guarda la señal</p>
+                <p>Piensa en ese lugar favorito al que volverías solo por algo dulce. Las pistas te llevarán hasta lo que te espera.</p>
+              } @else if (current.order === 5) {
+                <p class="interaction-kicker">Algo viajó contigo</p>
+                <p>No tienes que ir más lejos. Revela las pistas una por una y piensa en todo el recorrido de hoy.</p>
               } @else {
                 <p class="interaction-kicker">Observa con calma</p><p>La primera pista está en tu casa. cualquier cosa las pistas te acompañarán.</p>
               }
@@ -123,7 +177,28 @@ import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-boa
           @if (interactionMessage()) { <p class="interaction-message" [class.complete]="interactionComplete()" role="status">{{ interactionMessage() }}</p> }
         </section>
 
-        @if (current.interaction.kind !== 'word-order') {
+        @if (current.order === 5) {
+          @if (hintCount() >= 1) {
+            <article class="hint-card page-enter">
+              <div class="hint-icon" aria-hidden="true">✦</div><div><small>Pista 1 · sutil</small><p>{{ current.primaryHint }}</p></div>
+            </article>
+          }
+          @if (hintCount() >= 2) {
+            <article class="hint-card secondary-hint page-enter"><div class="hint-icon">◇</div><div><small>Pista 2 · más cerca</small><p>{{ current.secondaryHint }}</p></div></article>
+          }
+          @if (hintCount() >= 3) {
+            <article class="hint-card secondary-hint page-enter"><div class="hint-icon">○</div><div><small>Pista 3 · piensa en el recorrido</small><p>{{ current.tertiaryHint }}</p></div></article>
+          }
+          @if (hintCount() >= 4) {
+            <article class="hint-card final-hint page-enter"><div class="hint-icon">◎</div><div><small>Pista final</small><p>{{ current.finalHint }}</p></div></article>
+            <article class="destination-reveal page-enter" aria-live="polite">
+              <div class="destination-reveal__seal" aria-hidden="true">♡</div>
+              <small>La respuesta estuvo cerca todo este tiempo</small>
+              <h2>{{ current.interaction.destinationName }}</h2>
+              <p>{{ current.interaction.arrivalInstruction }}</p>
+            </article>
+          }
+        } @else if (current.interaction.kind !== 'word-order' && current.order !== 6) {
           <article class="hint-card">
             <div class="hint-icon" aria-hidden="true">✦</div><div><small>Pista 1 · sutil</small><p>{{ current.primaryHint }}</p></div>
           </article>
@@ -132,26 +207,43 @@ import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-boa
         }
 
         <div class="action-stack">
-          @if (current.interaction.kind !== 'word-order' && hintCount() < 2) { <button class="secondary-button" type="button" (click)="revealHint()">Revelar otra pista</button> }
+          @if (current.order === 5 && hintCount() < 4) {
+            <button class="secondary-button" type="button" (click)="revealHint()">{{ hintCount() === 0 ? 'Revelar primera pista' : 'Revelar otra pista' }}</button>
+          } @else if (current.order !== 5 && current.order !== 6 && current.interaction.kind !== 'word-order' && hintCount() < 2) {
+            <button class="secondary-button" type="button" (click)="revealHint()">Revelar otra pista</button>
+          }
           @if (current.mapUrl && hintCount() >= 2 && current.interaction.kind !== 'word-order') {
             <a class="secondary-button" [href]="current.mapUrl" target="_blank" rel="noopener noreferrer">Abrir ubicación en Google Maps</a>
             <p class="map-fallback">{{ current.interaction.locationAlt }}</p>
           }
-          @if (state.progress().unlockedVideoIds.includes(current.id)) {
+          @if (current.order === 6) {
+            @if (phraseSolved() && !returnMessageShown()) {
+              <button class="primary-button glow" type="button" (click)="showReturnMessage()">Continuar</button>
+            } @else if (returnMessageShown()) {
+              <button class="primary-button glow home-button" type="button" (click)="returnHome()">Volver a casa ❤️</button>
+            }
+          } @else if (state.progress().unlockedVideoIds.includes(current.id)) {
             <a class="primary-button" [routerLink]="['/recuerdo', current.id]">Volver a ver el recuerdo</a>
           } @else if (current.interaction.kind === 'word-order') {
+          } @else if (current.order === 5 && hintCount() < 4) {
           } @else if (current.validationMode === 'code-only') {
             <a class="primary-button glow" [class.disabled-link]="!interactionComplete()" [attr.aria-disabled]="!interactionComplete()" (click)="guardInteraction($event)" [routerLink]="['/escanear', current.id]" [queryParams]="{ manual: true }">Ingresar el código de la rosa</a>
           } @else {
             <a class="primary-button glow" [class.disabled-link]="!interactionComplete()" [attr.aria-disabled]="!interactionComplete()" (click)="prepareScanner($event)" [routerLink]="['/escanear', current.id]">
-              {{ current.order === 3 ? 'Ya lo encontré' : 'Escanear QR' }}
+              {{ current.order === 3 || current.order === 4 || current.order === 5 ? 'Ya lo encontré' : 'Escanear QR' }}
             </a>
             <a class="text-button centered" [class.disabled-link]="!interactionComplete()" [attr.aria-disabled]="!interactionComplete()" (click)="prepareScanner($event)" [routerLink]="['/escanear', current.id]" [queryParams]="{ manual: true }">
               Ingresar código manual
             </a>
           }
-          <button class="emergency-button" type="button" (click)="showEmergency.set(!showEmergency())">No puedo continuar</button>
+          @if (current.order !== 6) {
+            <button class="emergency-button" type="button" (click)="showEmergency.set(!showEmergency())">No puedo continuar</button>
+          }
         </div>
+
+        @if (returnTransition()) {
+          <div class="homecoming-transition" aria-hidden="true"></div>
+        }
 
         @if (showEmergency()) {
           <aside class="emergency-panel page-enter"><h2>Tranquila, no estás atrapada</h2><p>Puedes usar el código escrito junto al QR, revelar todas las pistas o continuar manualmente.</p><div class="inline-actions">
@@ -166,7 +258,7 @@ import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-boa
           <div class="story-dialog-backdrop" (click)="closeDialog()" (keydown.escape)="closeDialog()">
             <section
               class="story-dialog"
-              [class.story-dialog--warning]="dialog === 'early-warning' || dialog === 'bag-warning'"
+              [class.story-dialog--warning]="dialog === 'early-warning' || dialog === 'bag-warning' || dialog === 'dessert-warning' || dialog === 'envelope-warning'"
               role="dialog"
               aria-modal="true"
               [attr.aria-labelledby]="dialog + '-title'"
@@ -214,6 +306,28 @@ import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-boa
                     <button #dialogPrimary class="primary-button" type="button" (click)="closeDialog()">Entendido, no lo abriré</button>
                   </div>
                 }
+                @case ('dessert-warning') {
+                  <div class="story-dialog__icon story-dialog__icon--warning" aria-hidden="true">!</div>
+                  <p class="eyebrow">Antes del primer bocado</p>
+                  <h2 id="dessert-warning-title">Todavía no lo pruebes</h2>
+                  <p class="story-dialog__warning-copy">Antes de abrirlo o probarlo, <strong>mira con mucha atención el envase por fuera</strong>. La siguiente señal está esperando ahí.</p>
+                  <div class="story-dialog__rule"><span aria-hidden="true">⌕</span><p>Busca el QR, escanéalo primero y después disfruta tu cheesecake.</p></div>
+                  <div class="story-dialog__actions">
+                    <button #dialogPrimary class="primary-button" type="button" (click)="continueToScanner()">Buscar y escanear la señal</button>
+                    <button class="secondary-button" type="button" (click)="closeDialog()">Todavía no</button>
+                  </div>
+                }
+                @case ('envelope-warning') {
+                  <div class="story-dialog__icon story-dialog__icon--warning" aria-hidden="true">!</div>
+                  <p class="eyebrow">Antes de abrir el sobre</p>
+                  <h2 id="envelope-warning-title">Todavía no lo abras</h2>
+                  <p class="story-dialog__warning-copy">Cuando lo encuentres, <strong>mira muy bien por fuera antes de abrirlo</strong>. Aún guarda una señal para ti.</p>
+                  <div class="story-dialog__rule"><span aria-hidden="true">⌕</span><p>Busca el QR por fuera y escanéalo primero.</p></div>
+                  <div class="story-dialog__actions">
+                    <button #dialogPrimary class="primary-button" type="button" (click)="continueToScanner()">Buscar y escanear la señal</button>
+                    <button class="secondary-button" type="button" (click)="closeDialog()">Seguir buscando</button>
+                  </div>
+                }
               }
             </section>
           </div>
@@ -226,7 +340,7 @@ export class StageComponent implements OnDestroy {
   @ViewChild('dialogPrimary') dialogPrimary?: ElementRef<HTMLButtonElement>;
   readonly state = inject(AdventureStateService);
   readonly showEmergency = signal(false);
-  readonly activeDialog = signal<'hint' | 'manual' | 'early-warning' | 'bag-warning' | null>(null);
+  readonly activeDialog = signal<'hint' | 'manual' | 'early-warning' | 'bag-warning' | 'dessert-warning' | 'envelope-warning' | null>(null);
   readonly pendingManualScanner = signal(false);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -242,8 +356,16 @@ export class StageComponent implements OnDestroy {
   readonly orderedPieces = signal(['IV', 'II', 'I', 'III']);
   readonly countdownSeconds = signal(this.stage?.interaction.kind === 'fragment-order' ? 8 : 0);
   readonly countdownSkipped = signal(false);
+  readonly assemblyStarted = signal(false);
+  readonly phraseSolved = signal(false);
+  readonly returnMessageShown = signal(false);
+  readonly returnTransition = signal(false);
+  readonly assemblyMessage = signal('');
+  readonly finalPhrase = new FormControl('', { nonNullable: true });
+  readonly revealLetters = [...'MI VIDA'];
   private countdownTimer?: number;
   private dialogFocusTimer?: number;
+  private returnTimer?: number;
 
   constructor() {
     this.resetWords();
@@ -255,10 +377,54 @@ export class StageComponent implements OnDestroy {
   ngOnDestroy(): void {
     if (this.countdownTimer) window.clearInterval(this.countdownTimer);
     if (this.dialogFocusTimer) window.clearTimeout(this.dialogFocusTimer);
+    if (this.returnTimer) window.clearTimeout(this.returnTimer);
+  }
+
+  startAssembly(): void {
+    this.assemblyStarted.set(true);
+    window.setTimeout(() => document.getElementById('fragmentPhrase')?.focus(), 0);
+  }
+
+  checkFinalPhrase(event?: Event): void {
+    event?.preventDefault();
+    const value = this.finalPhrase.value.trim().replace(/\s+/g, ' ').toLocaleUpperCase('es');
+    if (value !== 'MI VIDA') {
+      this.assemblyMessage.set('Casi. Mira nuevamente cómo están acomodadas las piezas. Todas tienen un lugar.');
+      return;
+    }
+    if (!this.stage) return;
+    this.assemblyMessage.set('');
+    this.finalPhrase.setValue('MI VIDA');
+    this.phraseSolved.set(true);
+    this.state.confirmFragmentLetter(this.stage.id);
+    this.state.completeStage(this.stage.id);
+    navigator.vibrate?.([60, 35, 90]);
+  }
+
+  clearAssemblyMessage(): void {
+    if (this.assemblyMessage()) this.assemblyMessage.set('');
+  }
+
+  showReturnMessage(): void {
+    this.returnTransition.set(true);
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this.returnTimer = window.setTimeout(() => {
+      this.returnTransition.set(false);
+      this.returnMessageShown.set(true);
+    }, reducedMotion ? 0 : 1800);
+  }
+
+  returnHome(): void {
+    this.state.setReturningHome();
+    void this.router.navigate(['/epilogo']);
   }
 
   revealHint(): void {
     if (!this.stage) return;
+    if (this.stage.order === 5) {
+      this.hintCount.set(this.state.useHint(this.stage.id));
+      return;
+    }
     this.openDialog('hint');
   }
   confirmHint(): void {
@@ -266,7 +432,10 @@ export class StageComponent implements OnDestroy {
     this.hintCount.set(this.state.useHint(this.stage.id));
     this.closeDialog();
   }
-  revealAll(): void { while (this.stage && this.hintCount() < 2) this.hintCount.set(this.state.useHint(this.stage.id)); }
+  revealAll(): void {
+    const target = this.stage?.order === 5 ? 4 : 2;
+    while (this.stage && this.hintCount() < target) this.hintCount.set(this.state.useHint(this.stage.id));
+  }
   restore(): void { this.state.restoreCurrentStage(); this.showEmergency.set(false); }
   continueManually(): void {
     if (!this.stage) return;
@@ -282,11 +451,11 @@ export class StageComponent implements OnDestroy {
       this.guardInteraction(event);
       return;
     }
-    if (this.stage?.order !== 3) return;
+    if (this.stage?.order !== 3 && this.stage?.order !== 4 && this.stage?.order !== 5) return;
     event.preventDefault();
     const target = event.currentTarget as HTMLAnchorElement | null;
     this.pendingManualScanner.set(target?.search.includes('manual=true') ?? false);
-    this.openDialog('bag-warning');
+    this.openDialog(this.stage.order === 3 ? 'bag-warning' : this.stage.order === 4 ? 'dessert-warning' : 'envelope-warning');
   }
   continueToScanner(): void {
     if (!this.stage) return;
@@ -345,7 +514,7 @@ export class StageComponent implements OnDestroy {
   skipCountdown(): void { this.countdownSkipped.set(true); this.countdownSeconds.set(0); if (this.countdownTimer) window.clearInterval(this.countdownTimer); }
 
   private finishInteraction(complete: boolean, message: string): void { this.interactionComplete.set(complete); this.interactionMessage.set(message); if (complete) navigator.vibrate?.(45); }
-  private openDialog(dialog: 'hint' | 'manual' | 'early-warning' | 'bag-warning'): void {
+  private openDialog(dialog: 'hint' | 'manual' | 'early-warning' | 'bag-warning' | 'dessert-warning' | 'envelope-warning'): void {
     this.activeDialog.set(dialog);
     if (this.dialogFocusTimer) window.clearTimeout(this.dialogFocusTimer);
     this.dialogFocusTimer = window.setTimeout(() => this.dialogPrimary?.nativeElement.focus(), 0);

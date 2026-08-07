@@ -43,11 +43,15 @@ import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-boa
           </div>
         } @else {
           <div class="reward-reveal page-enter">
-            @if (current.order === 1) {
+            @if (current.order <= 5) {
               <div class="first-fragment-experience">
                 <p class="eyebrow">Fragmento desbloqueado</p>
-                <h2>Encontraste el primer fragmento</h2>
-                <p class="lead compact">Quise empezar con una rosa porque, aunque las flores duren poquito, espero que el recuerdo de este momento se quede contigo por mucho tiempo.</p>
+                <h2>Encontraste el {{ fragmentOrdinal(current.order) }} fragmento</h2>
+                <p class="lead compact">
+                  {{ current.order === 1
+                    ? 'Quise empezar con una rosa porque, aunque las flores duren poquito, espero que el recuerdo de este momento se quede contigo por mucho tiempo.'
+                    : current.completionMessage }}
+                </p>
 
                 @if (!letterRevealed()) {
                   <form
@@ -57,7 +61,9 @@ import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-boa
                     (submit)="saveFragmentLetter(); $event.preventDefault()"
                     novalidate
                   >
-                    <p class="fragment-letter-prompt">Mira la pieza que acompaña a la rosa.</p>
+                    <p class="fragment-letter-prompt">
+                      {{ fragmentPrompt(current.order) }}
+                    </p>
                     <label for="fragmentLetter">¿Qué letra aparece en ella?</label>
                     <input
                       id="fragmentLetter"
@@ -81,14 +87,14 @@ import { FragmentBoardComponent } from '../../shared/fragment-board/fragment-boa
                 } @else {
                   <section class="fragment-letter-reveal" aria-live="polite" aria-labelledby="saved-fragment-title">
                     <div class="fragment-letter-seal" aria-hidden="true">{{ current.fragment.label }}</div>
-                    <h3 id="saved-fragment-title">Primer fragmento guardado</h3>
+                    <h3 id="saved-fragment-title">{{ fragmentOrdinal(current.order, true) }} fragmento guardado</h3>
                     <p>Guárdalo bien. Más adelante entenderás qué significa.</p>
                     <button class="primary-button" type="button" (click)="continueJourney()">Continuar la aventura</button>
                     <div class="fragment-found-progress">
-                      <small>Fragmentos encontrados: 1 de {{ state.config.stages.length }}</small>
-                      <div class="fragment-found-dots" aria-label="1 de 6 fragmentos encontrados">
+                      <small>Fragmentos encontrados: {{ current.order }} de {{ state.config.stages.length }}</small>
+                      <div class="fragment-found-dots" [attr.aria-label]="current.order + ' de ' + state.config.stages.length + ' fragmentos encontrados'">
                         @for (item of state.config.stages; track item.id; let i = $index) {
-                          <span [class.found]="i === 0" aria-hidden="true"></span>
+                          <span [class.found]="i < current.order" aria-hidden="true"></span>
                         }
                       </div>
                     </div>
@@ -139,7 +145,9 @@ export class MemoryComponent implements OnDestroy {
   readonly fragmentLetter = new FormControl('', { nonNullable: true });
   readonly letterMessage = signal('');
   readonly letterAccepted = signal(false);
-  readonly letterRevealed = signal(this.stage?.order === 1 && this.isCompleted());
+  readonly letterRevealed = signal(
+    this.stage ? this.state.progress().confirmedFragmentStageIds.includes(this.stage.id) : false,
+  );
   readonly fragments = this.state.config.stages.map((stage) => stage.fragment);
   private slowTimer = window.setTimeout(() => this.slowConnection.set(true), 9000);
   private revealTimer?: number;
@@ -185,7 +193,7 @@ export class MemoryComponent implements OnDestroy {
   }
 
   saveFragmentLetter(): void {
-    if (!this.stage || this.stage.order !== 1 || this.letterRevealed() || this.letterAccepted()) return;
+    if (!this.stage || this.stage.order > 5 || this.letterRevealed() || this.letterAccepted()) return;
     const value = this.fragmentLetter.value.trim().toUpperCase();
     if (!value) {
       this.letterMessage.set('Primero escribe la letra que aparece en tu fragmento.');
@@ -201,6 +209,7 @@ export class MemoryComponent implements OnDestroy {
     const revealDelay = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 280;
     this.revealTimer = window.setTimeout(() => {
       if (!this.stage) return;
+      this.state.confirmFragmentLetter(this.stage.id);
       this.state.completeStage(this.stage.id);
       this.isCompleted.set(true);
       this.letterRevealed.set(true);
@@ -210,6 +219,19 @@ export class MemoryComponent implements OnDestroy {
 
   clearLetterMessage(): void {
     if (this.letterMessage()) this.letterMessage.set('');
+  }
+
+  fragmentOrdinal(order: number, capitalize = false): string {
+    const ordinal = order === 1 ? 'primer' : order === 2 ? 'segundo' : order === 3 ? 'tercer' : order === 4 ? 'cuarto' : 'quinto';
+    return capitalize ? ordinal.charAt(0).toUpperCase() + ordinal.slice(1) : ordinal;
+  }
+
+  fragmentPrompt(order: number): string {
+    if (order === 1) return 'Mira la pieza que acompaña a la rosa.';
+    if (order === 2) return 'Mira el fragmento físico que venía en el sobre.';
+    if (order === 3) return 'Mira el fragmento físico que acompaña a la bolsa.';
+    if (order === 4) return 'Mira el fragmento físico que acompaña al cheesecake.';
+    return 'Mira el fragmento físico que encontraste dentro del sobre.';
   }
 
   continueJourney(): void {

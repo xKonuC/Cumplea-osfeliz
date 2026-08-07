@@ -28,6 +28,26 @@ describe('AdventureStateService', () => {
     expect(service.progress().currentStageId).toBe(second.id);
   });
 
+  it('guarda la confirmación de la letra separada de la finalización del capítulo', () => {
+    const third = ADVENTURE_CONFIG.stages[2];
+    service.confirmFragmentLetter(third.id);
+    expect(service.progress().confirmedFragmentStageIds).toContain(third.id);
+    expect(service.progress().completedStageIds).not.toContain(third.id);
+  });
+
+  it('permite revelar las cuatro pistas del quinto capítulo', () => {
+    const fifth = ADVENTURE_CONFIG.stages[4];
+    for (let index = 0; index < 5; index += 1) service.useHint(fifth.id);
+    expect(service.progress().hintsUsed[fifth.id]).toBe(4);
+  });
+
+  it('acepta progreso anterior sin confirmaciones de letras', () => {
+    const legacyProgress = JSON.parse(service.exportJson()) as Record<string, unknown>;
+    delete legacyProgress['confirmedFragmentStageIds'];
+    expect(service.importJson(JSON.stringify(legacyProgress))).toBe(true);
+    expect(service.progress().confirmedFragmentStageIds).toEqual([]);
+  });
+
   it('solo completa la aventura después de reunir seis fragmentos y abrir el epílogo', () => {
     service.completeEpilogue();
     expect(service.progress().adventureCompleted).toBe(false);
